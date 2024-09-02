@@ -1,11 +1,6 @@
 package org.monarchinitiative.gregor.pedigree;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.*;
 
 // TODO(holtgrem): Test me!
 
@@ -25,12 +20,17 @@ public final class Pedigree {
 	/**
 	 * the pedigree's members
 	 */
-	private final ImmutableList<Person> members;
+	private final List<Person> members;
 
 	/**
 	 * mapping from member name to member
 	 */
-	private final ImmutableMap<String, IndexedPerson> nameToMember;
+	private final Map<String, IndexedPerson> nameToMember;
+
+    /**
+     * List of names of all members
+     */
+	private final List<String> names;
 
 	/**
 	 * Initialize the object with the given values
@@ -40,13 +40,14 @@ public final class Pedigree {
 	 */
 	public Pedigree(String name, Collection<Person> members) {
 		this.name = name;
-		this.members = ImmutableList.copyOf(members);
+		this.members = List.copyOf(members);
 
-		ImmutableMap.Builder<String, IndexedPerson> mapBuilder = new ImmutableMap.Builder<String, IndexedPerson>();
+		Map<String, IndexedPerson> map = new LinkedHashMap<>();
 		int i = 0;
 		for (Person person : members)
-			mapBuilder.put(person.getName(), new IndexedPerson(i++, person));
-		this.nameToMember = mapBuilder.build();
+			map.put(person.getName(), new IndexedPerson(i++, person));
+		this.nameToMember = Collections.unmodifiableMap(map);
+		this.names = new ArrayList<>();
 	}
 
 	/**
@@ -78,14 +79,14 @@ public final class Pedigree {
 	/**
 	 * @return the pedigree's members
 	 */
-	public ImmutableList<Person> getMembers() {
+	public List<Person> getMembers() {
 		return members;
 	}
 
 	/**
 	 * @return mapping from member name to member
 	 */
-	public ImmutableMap<String, IndexedPerson> getNameToMember() {
+	public Map<String, IndexedPerson> getNameToMember() {
 		return nameToMember;
 	}
 
@@ -98,13 +99,12 @@ public final class Pedigree {
 	 * @return <code>Pedigree</code> with the members from <code>names</code> in the given order
 	 */
 	public Pedigree subsetOfMembers(Collection<String> names) {
-		HashSet<String> nameSet = new HashSet<String>();
-		nameSet.addAll(names);
+        Set<String> nameSet = new HashSet<>(names);
 
 		ArrayList<Person> tmpMembers = new ArrayList<Person>();
 		for (String name : names)
 			if (hasPerson(name)) {
-				Person p = nameToMember.get(name).getPerson();
+				Person p = nameToMember.get(name).person();
 				Person father = nameSet.contains(p.getFather().getName()) ? p.getFather() : null;
 				Person mother = nameSet.contains(p.getMother().getName()) ? p.getMother() : null;
 
@@ -118,7 +118,7 @@ public final class Pedigree {
 	 */
 	public static Pedigree constructSingleSamplePedigree(String sampleName) {
 		final Person person = new Person(sampleName, null, null, Sex.UNKNOWN, Disease.AFFECTED);
-		return new Pedigree("pedigree", ImmutableList.of(person));
+		return new Pedigree("pedigree", List.of(person));
 	}
 
 	/**
@@ -131,11 +131,10 @@ public final class Pedigree {
 	/**
 	 * @return list of members, in the same order as in {@link #members}.
 	 */
-	public ImmutableList<String> getNames() {
-		ImmutableList.Builder<String> builder = new ImmutableList.Builder<String>();
+	public List<String> getNames() {
 		for (Person p : members)
-			builder.add(p.getName());
-		return builder.build();
+			names.add(p.getName());
+		return Collections.unmodifiableList(names);
 	}
 
 	@Override
@@ -146,28 +145,23 @@ public final class Pedigree {
 	/**
 	 * Helper class, used in the name to member map.
 	 */
-	public static class IndexedPerson {
-		private final int idx;
-		private final Person person;
-
-		public IndexedPerson(int idx, Person person) {
-			this.idx = idx;
-			this.person = person;
-		}
+		public record IndexedPerson(int idx, Person person) {
 
 		/**
 		 * @return numeric index of person in pedigree
 		 */
-		public int getIdx() {
-			return idx;
-		}
+			@Override
+			public int idx() {
+				return idx;
+			}
 
-		/**
-		 * @return the wrapped {@link Person}
-		 */
-		public Person getPerson() {
-			return person;
+			/**
+			 * @return the wrapped {@link Person}
+			 */
+			@Override
+			public Person person() {
+				return person;
+			}
 		}
-	}
 
 }
